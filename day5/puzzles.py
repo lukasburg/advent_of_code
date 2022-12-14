@@ -1,6 +1,6 @@
 import re
 
-with open("input.txt") as file:
+with open("inpureversedt.txt") as file:
     containers = ''
     while (line := file.readline()).strip():
         containers += line
