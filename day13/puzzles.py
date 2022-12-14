@@ -8,55 +8,70 @@ class WrongOrderException(Exception):
     pass
 
 
-def compare(left, right, depth=0):
-    depth_puffer = "".join(["  " for i in range(depth)])
-    print(f'{depth_puffer}- Compare {left} vs {right}')
-    if not left and not right:
-        return False
-    elif not left and not isinstance(left, int):
-        print(f"{depth_puffer}  - Left side ran out of items, so inputs are in the right order")
-        return True
-    elif not right and not isinstance(right, int):
-        print(f"{depth_puffer}  - Right side ran out of items, so inputs are not in the right order")
-        raise WrongOrderException
-    if isinstance(left, list) or isinstance(right, list):
-        if not isinstance(left, list) or not isinstance(right, list):
-            print(f"{depth_puffer}- Mixed types; convert ... and retry comparison")
-        left = [left] if not isinstance(left, list) else left
-        right = [right] if not isinstance(right, list) else right
-        for left, right in zip_longest(left, right):
-            if compare(left, right, depth+1):
-                return True
-    else:
-        if left > right:
-            print(f"{depth_puffer}  - Right side is smaller, so inputs are not in the right order")
+class MessageList(list):
+    def __lt__(self, other):
+        try:
+            return compare(self, other)
+        except WrongOrderException:
+            return False
+
+
+def compare(left, right):
+    if isinstance(left, int) and isinstance(right, int):
+        if right < left:
             raise WrongOrderException
         if left < right:
-            print(f"{depth_puffer}  - Left side is smaller, so inputs are in the right order")
-        return left < right
+            return True
+        return False
+    elif isinstance(left, list) and isinstance(right, list):
+        for l_el, r_el in zip_longest(left, right):
+            if l_el is None and r_el is None:
+                return False
+            if l_el is None:
+                return True
+            if r_el is None:
+                raise WrongOrderException
+            if compare(l_el, r_el):
+                return True
+    else:  # one list, one integer
+        left = [left] if not isinstance(left, list) else left
+        right = [right] if not isinstance(right, list) else right
+        if compare(left, right):
+            return True
 
 
 def run():
     right_indizes = []
     wrong_order = []
     for index, pair in enumerate(inp.strip().split('\n\n')):
-        print(f'\n== Pair {index+1} ==')
         strings = pair.split('\n')
         left, right = eval(strings[0]), eval(strings[1])
         try:
-            compare(left, right)
-            right_indizes.append(index+1)
+            if compare(left, right):
+                right_indizes.append(index+1)
+            else:
+                raise RuntimeError(f'No decision for {index+1}')
         except WrongOrderException:
             wrong_order.append((left, right))
             pass
-    print('\nPairs in right order: ', right_indizes, ', sum: ', sum(right_indizes))
+    print('\nPairs in right order: ', right_indizes, ',\n sum: ', sum(right_indizes))
     print('\n\n\n===\n\n\n')
-    for left, right in wrong_order:
-        print()
-        try:
-            compare(left, right)
-        except WrongOrderException:
-            pass
 
 
 run()
+
+
+def order():
+    key2, key6 = MessageList([[2]]), MessageList([[6]])
+    lists = [key2, key6]
+    for lst in inp.split('\n'):
+        if not lst:
+            continue
+        parsed = eval(lst.strip())
+        lists.append(MessageList(parsed))
+    ordered = sorted(lists)
+    decoder_key = (ordered.index(key2)+1) * (ordered.index(key6)+1)
+    print('Ordered: ', ordered, '\n decoder key: ', decoder_key)
+
+
+order()
