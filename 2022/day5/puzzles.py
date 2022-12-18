@@ -1,6 +1,6 @@
 import re
 
-with open("inpureversedt.txt") as file:
+with open("input.txt") as file:
     containers = ''
     while (line := file.readline()).strip():
         containers += line
@@ -21,8 +21,8 @@ for instruction in instructions:
     # get moving containers
     moved_containers = cols[start][-amount:]
     # paste them in reverse order for puzzle 1
-    # cols[destination] += reversed(moved_containers)
-    cols[destination] += moved_containers
+    cols[destination] += reversed(moved_containers)
+    # cols[destination] += moved_containers
     # remove moved containers
     cols[start] = cols[start][:-amount]
 

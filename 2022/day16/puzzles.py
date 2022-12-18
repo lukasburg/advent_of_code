@@ -59,6 +59,9 @@ class Room:
         If yes, update this rooms score and return True
         If no, return False
         """
+        # TODO: A additional and probably even more effective optimization would be to look at the set of remaining
+        #  rooms in each path and if two paths share the same remaining rooms but one has a better score, the worse path
+        #  can be scrapped.
         if self.current_best_score_if_reached_after_time_i[time] <= score:
             for i in reversed(range(0, time)):
                 if self.current_best_score_if_reached_after_time_i[i] > score:
@@ -111,6 +114,7 @@ class PossiblePath:
         return next_possibles
 
     def next_possibles(self, verbose=False, do_not_optimize=False):
+        # TODO: see TODO Room
         next_possibles = self._calc_new_possibles(verbose, do_not_optimize)
         if not next_possibles:
             if verbose:
@@ -122,7 +126,6 @@ class PossiblePath:
         return PossiblePath(self.current_score, self.current_room, self.remaining_time,
                             self.remaining_rooms.copy(), path_to_here=copy(self.path_to_here),
                             score_added_by_current_room=self.score_added_by_current_room)
-
 
     def __str__(self):
         return f'{" -> ".join(self.path_to_here + [self.current_room.name])}: {self.current_score}'
@@ -137,6 +140,7 @@ class DoublePaths:
         self.elefant_path = elefant_path
 
     def next_possibles(self, verbose=False):
+        # TODO: See todo Room
         try:
             player_next_possibles = self.player_path.next_possibles(verbose, do_not_optimize=True)
             # player_next_possibles.append(None)  # player did not move is a possibility
