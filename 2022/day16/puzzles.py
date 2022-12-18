@@ -2,14 +2,15 @@ import math
 from collections import Counter
 import itertools
 import re
+from copy import deepcopy, copy
 from typing import Iterable
 
 import networkx
 import matplotlib.pyplot as plt
 
 
-VERBOSE = True
-with open('example_input') as file:
+VERBOSE = False
+with open('input') as file:
     inp = file.readlines()
 
 
@@ -117,6 +118,12 @@ class PossiblePath:
             raise NoMoreOptions
         return next_possibles
 
+    def __copy__(self):
+        return PossiblePath(self.current_score, self.current_room, self.remaining_time,
+                            self.remaining_rooms.copy(), path_to_here=copy(self.path_to_here),
+                            score_added_by_current_room=self.score_added_by_current_room)
+
+
     def __str__(self):
         return f'{" -> ".join(self.path_to_here + [self.current_room.name])}: {self.current_score}'
 
@@ -130,23 +137,61 @@ class DoublePaths:
         self.elefant_path = elefant_path
 
     def next_possibles(self, verbose=False):
-        player_next_possibles = self.player_path.next_possibles(verbose, do_not_optimize=True)
-        player_next_possibles.append(self.player_path)  # player did not move is a possibility
-        elefant_next_possibles = self.elefant_path.next_possibles(verbose, do_not_optimize=True)
-        elefant_next_possibles.append(self.elefant_path)  # elefant did not move is a possibility
+        try:
+            player_next_possibles = self.player_path.next_possibles(verbose, do_not_optimize=True)
+            # player_next_possibles.append(None)  # player did not move is a possibility
+        except NoMoreOptions:
+            player_next_possibles = [None]
+        try:
+            elefant_next_possibles = self.elefant_path.next_possibles(verbose, do_not_optimize=True)
+        except NoMoreOptions:
+            elefant_next_possibles = [None]
+        # elefant_next_possibles.append(None)  # elefant did not move is a possibility
         next_possibles = []
         for player_path, elefant_path in list(itertools.product(player_next_possibles, elefant_next_possibles)):
+            if player_path is None and elefant_path is None:
+                # no movement makes no sense
+                continue
+            elif player_path is None:
+                player_didnt_move = True
+                player_path = self.player_path.__copy__()
+                elefant_didnt_move = False
+            elif elefant_path is None:
+                elefant_didnt_move = True
+                player_didnt_move = False
+                elefant_path = self.elefant_path.__copy__()
+            else:
+                player_didnt_move, elefant_didnt_move = False, False
+                player_path = player_path.__copy__()
+                elefant_path = elefant_path.__copy__()
             if player_path.current_room == elefant_path.current_room:
                 # player and elefant chose the same next destination
                 continue
+            elif player_path.current_room.name == 'AA' or elefant_path.current_room.name == 'AA':
+                # player or elefant not moving from start makes no sense
+                continue
+            elif player_didnt_move:
+                # remove option to move to room opened by the other protagonist
+                player_path.remaining_rooms.remove(elefant_path.current_room)
+                player_path.current_score += elefant_path.score_added_by_current_room
+                is_elefant_path_better = elefant_path.current_room.does_update_score(elefant_path.remaining_time, self.current_score)
+                if is_elefant_path_better:
+                    next_possibles.append(DoublePaths(player_path, elefant_path))
+            elif elefant_didnt_move:
+                # remove option to move to room opened by the other protagonist
+                elefant_path.remaining_rooms.remove(player_path.current_room)
+                elefant_path.current_score += player_path.score_added_by_current_room
+                is_elefant_path_better = elefant_path.current_room.does_update_score(elefant_path.remaining_time, self.current_score)
+                if is_elefant_path_better:
+                    next_possibles.append(DoublePaths(player_path, elefant_path))
             else:
                 # remove option to move to room opened by the other protagonist
                 player_path.remaining_rooms.remove(elefant_path.current_room)
                 elefant_path.remaining_rooms.remove(player_path.current_room)
                 player_path.current_score += elefant_path.score_added_by_current_room
                 elefant_path.current_score += player_path.score_added_by_current_room
-                is_player_path_better = player_path.current_room.does_update_score(player_path.remaining_time, player_path.current_score)
-                is_elefant_path_better = elefant_path.current_room.does_update_score(elefant_path.remaining_time, elefant_path.current_score)
+                is_player_path_better = player_path.current_room.does_update_score(player_path.remaining_time, self.current_score)
+                is_elefant_path_better = elefant_path.current_room.does_update_score(elefant_path.remaining_time, self.current_score)
                 if is_player_path_better or is_elefant_path_better:
                     next_possibles.append(DoublePaths(player_path, elefant_path))
                 elif verbose:
@@ -158,6 +203,12 @@ class DoublePaths:
                 print(f"Path {self} has no more options.")
             raise NoMoreOptions
         return next_possibles
+
+    @property
+    def current_score(self):
+        if self.player_path.current_score != self.elefant_path.current_score:
+            raise RuntimeError('Something went wrong')
+        return self.player_path.current_score
 
     def __str__(self):
         return f'[{self.player_path}  |  {self.elefant_path}]'
@@ -258,6 +309,28 @@ def calculate_best_path(start_room: Room, all_other_rooms: set[Room], verbose=Fa
     return top_scores[0], final_scores[top_scores[0]]
 
 
+def calculate_best_double_path(start_room: Room, all_other_rooms: set[Room], verbose=False):
+    starting_path_both = PossiblePath(0, start_room, 26, all_other_rooms)
+    next_paths = [DoublePaths(starting_path_both, starting_path_both)]
+    final_scores = dict()
+    total_paths_considered = 0
+    while next_paths:
+        next_path = next_paths.pop(0)
+        total_paths_considered += 1
+        if verbose:
+            print(f'Looking at path {next_path}.')
+        try:
+            new_possibilities = next_path.next_possibles(verbose=verbose)
+            next_paths += new_possibilities
+        except NoMoreOptions:
+            final_scores[next_path.current_score] = next_path
+    top_scores = sorted(final_scores.keys(), reverse=True)[0:5]
+    top_scores_str = '\n  '.join([str(final_scores[score]) for score in top_scores])
+    print(f'Top scores: {top_scores_str}')
+    print(f'Considered {total_paths_considered} paths in total.')
+    return top_scores[0], final_scores[top_scores[0]]
+
+
 def print_formatted_path(path: list[Room], original_graph: networkx.Graph, start: Room):
     open_valves = []
     real_path = []
@@ -288,7 +361,7 @@ def print_formatted_path(path: list[Room], original_graph: networkx.Graph, start
     print(f'Total pressure released: {total_released_pressure}')
 
 
-def main():
+def main(part):
     graph = networkx.Graph()
     room_dict, start = set_up_graph()
     rooms = list(room_dict.values())
@@ -303,11 +376,14 @@ def main():
     calculate_distance_matrix(reduced, start)
     all_relevant_rooms = set(reduced.nodes)
     all_relevant_rooms.remove(start)
-    score, path = calculate_best_path(start, all_relevant_rooms, verbose=VERBOSE)
+    if part == 1:
+        score, path = calculate_best_path(start, all_relevant_rooms, verbose=VERBOSE)
+        if VERBOSE:
+            path_to_end_skipping_start = [room_dict[name] for name in path.path_to_here[1:]] + [path.current_room]
+            print_formatted_path(path_to_end_skipping_start, graph, start)
+    elif part == 2:
+        score, path = calculate_best_double_path(start, all_relevant_rooms, verbose=VERBOSE)
     print(f'Best score: {score}')
-    if VERBOSE:
-        path_to_end_skipping_start = [room_dict[name] for name in path.path_to_here[1:]] + [path.current_room]
-        print_formatted_path(path_to_end_skipping_start, graph, start)
 
 
-main()
+main(2)
