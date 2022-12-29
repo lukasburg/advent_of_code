@@ -201,9 +201,8 @@ class SimulationByBuildOrder(Simulation):
             self.build_next = None
 
     def turn_and_return_all_new_build_order_options(self):
-        self._try_to_build()
-        self._increment_resources()
-        self._finish_build()
+        self.turn()
+        return self._create_next_build_step_copies()
 
     def __str__(self):
         return repr(self)
