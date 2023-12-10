@@ -67,7 +67,7 @@ for section in sections[1:]:
     lines = section.split("\n")
     for line in lines[1:]:
         dest_start, source_start, source_range = [int(num) for num in line.split()]
-        section_map.append(((source_start, source_start + source_range-1), (dest_start, dest_start + source_range-1)))
+        section_map.append((range(source_start, source_start + source_range), range(dest_start, dest_start + source_range)))
     sorted_map = sorted(section_map, key=lambda t: t[0][0])
     mappers2.append(sorted_map)
 
@@ -76,33 +76,12 @@ compressed_mapper = mappers2[0]
 for current_mapper in mappers2[1:]:
     new_compressed = []
     for compressed_ranges, current_ranges in itertools.product(compressed_mapper, current_mapper):
-        compressed_start, compressed_end = compressed_ranges[1]
-        current_start, current_end = current_ranges[0]
-        print(range(max(compressed_ranges[0], current_ranges[0]), min(compressed_ranges[-1], current_ranges[-1])+1))
-        # compressed is completely inside the existing result range
-        if current_start <= compressed_start <= current_end and current_start <= compressed_end <= current_end:
-            print(f"compressed swallowed: {compressed_ranges}, {current_ranges}")
-            # 3 ranges need to be added: possibly before and after, and inside:
-        # current is completely inside the existing result range
-        elif compressed_start <= current_start <= compressed_end and compressed_start <= current_end <= compressed_end:
-            print(f"current swallowed: {compressed_ranges}, {current_ranges}")
-            # 3 ranges need to be added: possibly before and after, and inside:
-            if compressed_start < current_start:
-                amount_before = current_start - compressed_start
-                before_source_range = (compressed_ranges[0][0], compressed_ranges[0][0]+amount_before-1)
-                before_dest_range = (compressed_ranges[1][0], compressed_ranges[1][0] + amount_before - 1)
-                new_compressed.append((before_source_range, before_dest_range))
-            if compressed_end > current_end:
-                amount_after = compressed_end - current_end
-                after_source_range = (compressed_ranges[0][1] - amount_after, compressed_ranges[0][1])
-                after_dest_range = (compressed_ranges[1][0], compressed_ranges[1][0] + amount_before - 1)
-                new_compressed.append((before_start_range, before_end_range))
-        # current start overlaps with compressed end
-        elif compressed_start <= current_start <= compressed_end:
-            print(f"start of current with end of compressed: {compressed_ranges}, {current_ranges}")
-        # current end overlaps with compressed start
-        elif compressed_start <= current_end <= compressed_end:
-            print(f"end of current with start of compressed: {compressed_ranges}, {current_ranges}")
+        compressed_dest = compressed_ranges[1]
+        current_source = current_ranges[0]
+        overlap = range(max(compressed_dest[0], current_source[0]), min(compressed_dest[-1], current_source[-1])+1)
+        if len(overlap) > 0:
+            print(f"overlap: {compressed_dest}, {current_source}, {overlap}")
         else:
-            print(f"no match: {compressed_ranges}, {current_ranges}")
+            print(f"no match: {compressed_dest}, {current_source}")
+
     print("---")
