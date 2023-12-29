@@ -91,6 +91,10 @@ class Map:
     def __getitem__(self, item):
         return self.map[int(item.imag)][int(item.real)]
 
+    @property
+    def size(self):
+        return len(self.map[0]), len(self.map)
+
     def render(self):
         lines = []
         for line in self.map:
@@ -104,11 +108,11 @@ class Map:
         return len(list(filter(lambda f: f.is_energized(), [field for line in self.map for field in line])))
 
 
-def energy_on_map(start_pos, start_dir):
-    mirror_map = Map(inp)
+def energy_on_map(start_pos, start_dir, mirror_map):
     # print(mirror_map.render())
     start_beam = Beam(start_pos, start_dir)
     current_beams = {start_beam}
+    # render_once = False
     while current_beams:
         new_current_beams = set()
         for beam in current_beams:
@@ -123,9 +127,24 @@ def energy_on_map(start_pos, start_dir):
                     if mirror_map.beam_inside_map(new_beam):
                         new_current_beams.add(new_beam)
         current_beams = new_current_beams
-        # print('\n\n---\n')
+        # if render_once:
+        #     print(mirror_map.render())
+        #     render_once = False
+        #     print('\n\n---\n')
         # print(mirror_map.render())
     return mirror_map.count_energized()
 
 
-print(f"Energized: {energy_on_map(0, 1)}")
+def run():
+    mirror_map = Map(inp)
+    # print(f"Energized: {energy_on_map(0, 1, Map(inp))}")
+
+    width, height = mirror_map.size
+    starts = ([(i, 1j) for i in range(width)] + [(complex(0, i), 1) for i in range(height)] +
+              [(complex(i, height-1), -1j) for i in range(width)] + [(complex(width-1, i), -1) for i in range(height)])
+    max_energy = max(energy_on_map(*start, Map(inp)) for start in starts)
+    print(f'Max energy {max_energy}')
+
+
+if __name__ == "__main__":
+    run()
