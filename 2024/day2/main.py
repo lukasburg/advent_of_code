@@ -19,16 +19,21 @@ def check_line_recursively(line, ascending=None):
 
 
 def check_line_recursively_with_removing(line, ascending=None, skipped_once = False, previous_number=None):
+    # last number? success
     if len(line) < 2:
         return True
+    # consume next number normally if possible
     if 0 < line[0] - line[1] < 4 and (ascending or ascending is None):
         if check_line_recursively_with_removing(line[1:], True, skipped_once, line[0]):
             return True
     if -4 < line[0] - line[1] < 0 and (not ascending or ascending is None):
         if check_line_recursively_with_removing(line[1:], False, skipped_once, line[0]):
             return True
+    # if no success on consuming and not skipped, try skipping
     if not skipped_once:
+        # only if enough numbers remain
         if len(line) >= 3:
+            # skip next number
             if 0 < line[0] - line[2] < 4 and (ascending or ascending is None):
                 if check_line_recursively_with_removing(line[2:], True, True, line[0]):
                     return True
@@ -38,6 +43,8 @@ def check_line_recursively_with_removing(line, ascending=None, skipped_once = Fa
         # if only one number remaining, just skip and all is fine
         else:
             return True
+        # if no success until here, try skipping this number and replace it with the previous one.
+        # use case: [61, 63, 60, 59] (63 seems fine at first, so removing it retroactively is necessary)
         if previous_number:
             return check_line_recursively_with_removing([previous_number] + line[1:], ascending, True)
         else:
