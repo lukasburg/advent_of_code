@@ -2,7 +2,7 @@ import re
 from collections import defaultdict
 from itertools import chain
 
-with open('example-input') as file:
+with open('example.txt') as file:
     inp = file.readlines()
 
 
