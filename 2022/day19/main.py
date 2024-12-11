@@ -2,7 +2,19 @@ import re
 from itertools import product
 from random import shuffle
 
-RESOURCES = [None, 'ore', 'clay', 'obsidian', 'geode']
+RESOURCES = [0, 1, 2, 3, 4]
+resource_to_string = {
+    None: 0,
+    'ore': 1,
+    'clay': 2,
+    'obsidian': 3,
+    'geode': 4
+}
+# 0 None
+# 1 ore
+# 2 clay
+# 3 obsidian
+# 4 geode
 
 def read(filename="input.txt"):
     with open(filename) as file:
@@ -17,18 +29,18 @@ class Blueprint:
                  geode_robot_ore_cost,
                  geode_robot_obsidian_cost):
         self.number = number
-        self.costs = {
-            None: dict(),
-            'ore': {'ore': ore_robot_cost},
-            'clay': {'ore': clay_robot_cost},
-            'obsidian': {'ore': obsidian_robot_ore_cost, 'clay': obsidian_robot_clay_cost},
-            'geode': {'ore': geode_robot_ore_cost, 'obsidian': geode_robot_obsidian_cost},
-        }
+        self.costs = [
+            (),
+            ((1, ore_robot_cost), ),
+            ((1, clay_robot_cost), ),
+            ((1, obsidian_robot_ore_cost), (2, obsidian_robot_clay_cost), ),
+            ((1, geode_robot_ore_cost), (3, geode_robot_obsidian_cost), ),
+        ]
 
     def __repr__(self):
-        return (f"BP{self.number}: ore(ore: {self.costs['ore']}), clay(ore: {self.costs['clay']}), "
-                f"obsidian({self.costs['obsidian']}), "
-                f"geode({self.costs['geode']})")
+        return (f"BP{self.number}: ore(ore: {self.costs[1]}), clay(ore: {self.costs[2]}), "
+                f"obsidian({self.costs[3]}), "
+                f"geode({self.costs[4]})")
 
 def parse(string):
     bp_matcher = "[^\\d]*(\\d+)[^\\d]*(\\d+)[^\\d]*(\\d+)[^\\d]*(\\d+)[^\\d]*(\\d+)[^\\d]*(\\d+)[^\\d]*(\\d+)[^\\d]*"
@@ -39,11 +51,11 @@ def internal_generator(options, repeat=1):
         shuffle(values)
         for prefix in uplevel:       # cycle through all upper levels
             for current in values:   # restart iteration of current level
-                if current in (None, 'clay', 'ore'):
+                if current in (0, 1, 2):
                     yield prefix + (current, )
-                if current == 'obsidian' and 'clay' in prefix:
+                if current == 3 and 2 in prefix:
                     yield prefix + (current, )
-                if current == 'geode' and 'obsidian' in prefix:
+                if current == 4 and 3 in prefix:
                     yield prefix + (current, )
 
     stack = (),
@@ -54,17 +66,17 @@ def internal_generator(options, repeat=1):
 def build_order_generator() -> product:
     repeat = 23
     for bo in internal_generator(RESOURCES, repeat):
-        if 'geode' in bo:
-            yield tuple(['ore']) + bo + tuple([None])
+        if 4 in bo:
+            yield tuple([1]) + bo + tuple([0])
 
 def calc_amount_of_resources_at_time(blueprint, build_order, time):
     build_until_now = list(reversed(build_order[:time]))
     # print(list(build_until_now))
-    resources = {res: 0 for res in RESOURCES}
+    resources = [0 for res in RESOURCES]
     for t, bot in enumerate(build_until_now, 1):
         resources[bot] += t
         if t != time:
-            for resource, amount in blueprint.costs[bot].items():
+            for resource, amount in blueprint.costs[bot]:
                 resources[resource] -= amount
     # del resources[None]
     return resources
@@ -73,7 +85,7 @@ def check_validity(blueprint, build_order):
     for t in range(25):
         resources = calc_amount_of_resources_at_time(blueprint, build_order, t)
         # print(t, resources)
-        for res in resources.values():
+        for res in resources:
             if res < 0:
                 return False
     return True
@@ -81,13 +93,16 @@ def check_validity(blueprint, build_order):
 def run(file):
     for bp in parse(read(file)):
         print(bp)
+        bo = ('ore', None, None, 'clay', None, 'clay', None, 'clay', None, None, None, 'obsidian', 'clay', None, None,  'obsidian', None, None, 'geode', None, None, 'geode', None, None, None)
+        bo = [resource_to_string[it] for it in bo]
+        print(calc_amount_of_resources_at_time(bp, bo, 24))
         max_geode_count = 0
         for i, bo in enumerate(build_order_generator()):
             if i % 100000 == 0:
                 print(f"{i}/{pow(5, 23)}")
                 print(bo)
             # purge if geode count = 0 or smaller than current max
-            geode_count = calc_amount_of_resources_at_time(bp, bo, 24)['geode']
+            geode_count = calc_amount_of_resources_at_time(bp, bo, 24)[4]
             # print(calc_amount_of_resources_at_time(bp, bo, 25))
             if geode_count == 0 or geode_count < max_geode_count:
                 continue
