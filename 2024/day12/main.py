@@ -114,36 +114,82 @@ def find_any_bottom_right_corner(area: set[Coord]):
         if c + (1, 0) not in area and c + (0, 1) not in area:
             return c
 
-def calc_perimeter_with_lines(area: set[Coord], garden):
+def calc_perimeter_with_lines(area: set[Coord], garden: Garden):
+    # for c in area:  # DEBUG
+    #     garden[c] = " " # D
+    border_groups = group_by_border_direction(area)
+    number_of_sides = 0
+    for border_group in border_groups.values():
+        # for b in border_group: # D
+        #     garden[b] = "-" # D
+        # print(d) # D
+        # print(render(garden)) # D
+        # for c in area: # D
+        #     garden[c] = " " # D
+        line_number = len(create_lines_from_group_by_are_adjacent(border_group))
+        number_of_sides += line_number
+        # print(line_number) # D
+    return number_of_sides
+
+def group_by_border_direction(area: set[Coord]):
+    border_groups = {n: set() for n in Coord.directions}
     for c in area:
-        garden[c] = " "
-    current_corner = find_any_bottom_right_corner(area)
-    garden[current_corner] = "C"
-    been_on = set()
-    direction_iterator = ClockwiseIterator()
-    direction, outwards = next(direction_iterator)
-    # garden[start_corner + outwards] = "#"
-    # garden[start_corner + direction] = "Q"
+        for direction in c.directions:
+            if c+direction not in area:
+                border_groups[direction].add(c)
+    return border_groups
 
-    print(render(garden))
+def touches_line(line: list[Coord], cell):
+    for n in cell.neighbors():
+        if n in line:
+            return True
+    return False
 
-def fence_price(area: set[Coord]):
-    return len(area) * calc_perimeter(area)
+def create_lines_from_group_by_are_adjacent(group: set[Coord]):
+    lines = list()
+    for c in group:
+        add_to_line = None
+        merge_lines = None
+        for line in lines:
+            if touches_line(line, c):
+                # cell could merge to existing lines together if they first were disjunct but know connected through this cell
+                if add_to_line:
+                    merge_lines = add_to_line, line
+                else:
+                    add_to_line = line
+        if merge_lines:
+            line1, line2 = merge_lines
+            lines.remove(line1)
+            lines.remove(line2)
+            lines.append(line1 + line2)
+        elif add_to_line:
+            add_to_line.append(c)
+        else:
+            lines.append([c])
+    return lines
+
+
+def fence_price(area: set[Coord], perimeter_count: int):
+    return len(area) * perimeter_count
 
 def run(file="input.txt"):
     garden = parse(read(file))
     # print(render(garden))
-    return sum([fence_price(area) for _, area in find_areas(garden)])
+    return sum([fence_price(area, calc_perimeter(area)) for _, area in find_areas(garden)])
 
 def run2(file="input.txt"):
     garden = parse(read(file))
     # print(render(garden))
-    for _, area in find_areas(garden):
-        calc_perimeter_with_lines(area, garden)
-        break
+    total_price = 0
+    for sym, area in find_areas(garden):
+        perimeter = calc_perimeter_with_lines(area, garden)
+        price =  fence_price(area, perimeter)
+        total_price += price
+        # print(sym, len(area), "*", perimeter, "=", price)
+    return total_price
     # return sum([fence_price(area) for _, area in ])
 
 
 if __name__ == "__main__":
     print(run2("example.txt"))
-    # print(run())
+    print(run2())
