@@ -79,8 +79,8 @@ def can_buy(available_resources: ResourceCount, bot_costs):
     return True
 
 
-def all_plausible_build_options(res: ResourceCount, blueprint: Blueprint, bot_count, depth, max_depth) -> set[int]:
-    can_buy_bots = {
+def all_plausible_build_options(res: ResourceCount, blueprint: Blueprint, bot_count, depth, max_depth) -> set[int | type(None)]:
+    can_buy_bots : set[int | type(None)] = {
         bot for bot in range(4) if can_buy(res, blueprint.costs[bot])
     }
     if depth == max_depth:
@@ -91,11 +91,11 @@ def all_plausible_build_options(res: ResourceCount, blueprint: Blueprint, bot_co
             # and can not build both ore and clay, waiting for either might make sense
             can_buy_bots.add(None)
     elif bot_count[OBSIDIAN] == 0:
-        # if no obsidian bots and can not build one of the three, waiting for one of them might make sense
+        # if no obsidian bots and can not build all three, waiting for one of them might make sense
         if not {ORE, CLAY, OBSIDIAN}.issubset(can_buy_bots):
             can_buy_bots.add(None)
     elif not {ORE, CLAY, OBSIDIAN, GEODE} == can_buy_bots:
-        # bot count obs and clay are both more than one, waiting on any bot might make sense
+        # if cant build all, waiting might make sense
         can_buy_bots.add(None)
     for res in range(3):
         if res in can_buy_bots and bot_count[res] >= blueprint.max_needed_bots[res]:
@@ -141,7 +141,7 @@ def recursive_options_search(previous_bo, blueprint, max_depth, progress_dict, i
     options = all_plausible_build_options(ResourceCount(previous_bo, blueprint), blueprint,
                                           BotCount(previous_bo), depth, max_depth)
     if is_waiting_for_other_bot:
-        # if decided to wait before despite being able to build a bot, don't build that bot now, would make sense
+        # if decided to wait before despite being able to build a bot, don't build that bot now
         options = options.difference(possible_before)
     for option in options:
         if option is None and len(options) > 1:
