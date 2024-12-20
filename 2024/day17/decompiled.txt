@@ -1,0 +1,8 @@
+do { B = A % 8
+B = B XOR 1
+C = A // (2^B)
+B = B XOR C
+A = A // (2^3)
+B = B XOR 6
+print B % 8
+} while (A != 0)

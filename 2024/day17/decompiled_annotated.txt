@@ -1,0 +1,35 @@
+# ORIGINAL OUTPUT in decompiled.txt
+
+do {
+    B = A % 8
+    B = B XOR 1
+    C = A // (2^B) -> (1, 2, 4, 8, ..., 128) -> shift left 0, 1, 2, 3, etc.
+    B = B XOR C
+        # A / 8 -> is the same as shift right 3 bits
+    A = floor( A / 8 )
+        # above B XOR 001 now XOR 110 -> B is essentially A XOR 111
+    B = B XOR 110
+    print B % 8
+} while (A != 0)
+
+target =  2,4,1,1,7,5,4,0,0,3,1,6,5,5,3,0
+
+for last 0:
+14: A = 0
+13: B = 000
+12: B = 110
+10: A max 111 (001-111)
+8: B[0:1] != C[0:1] and B[2] == C[2]
+7: C = 000
+5: B = 110
+4: A = 111
+
+for 4, 0,0,3,1,6,5,5,3,0
+14: A = 111000010110100010100101010
+13: B = 100
+12: B = 010
+10: A max ...111 - ...000
+8: B[1] == C[1]
+7: C =
+5: B = 110
+4: A = ...111
