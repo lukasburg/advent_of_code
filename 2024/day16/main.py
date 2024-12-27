@@ -1,17 +1,16 @@
-from itertools import starmap
+from collections import defaultdict
 from functools import reduce
-from operator import neg
+from itertools import starmap
 import numpy as np
+from queue import PriorityQueue
+import progressbar as pb
 
-
-WALL = '\u2588'
-
-
+WALL = '#'
 d_to_sym = {
-    (1, 0): 'v',
-    (-1, 0): '^',
-    (0, 1): '>',
-    (0, -1): '<',
+    1 + 0j: 'v',
+    -1 + 0j: '^',
+    0 + 1j: '>',
+    0 +-1j: '<',
 }
 
 def read(filename="input.txt"):
@@ -21,12 +20,12 @@ def read(filename="input.txt"):
 
 def parse(string):
     lines = string.split('\n')
-    a = np.full((len(lines[0]), len(lines)), ' ', dtype=np.dtype('U1'))
+    a = np.full((len(lines[0]), len(lines)), ' ')
     start = -1, -1
     for x, line in enumerate(lines):
         for y, char in enumerate(line):
             if char == '#':
-                a[x, y] = WALL
+                a[x, y] = "#"
             elif char == 'E':
                 a[x, y] = 'E'
             elif char == 'S':
@@ -42,33 +41,46 @@ def path_score(path, start_dir=(1, 0)):
             [start_dir] + path[:-1], path
         )))
 
-def n(d):
-    return tuple(map(neg, d))
-    
-def position(path, start_pos):
-    c = sum([start_pos] + path)
-    return int(c.real), int(c.imag)
-
 def next_dirs():
     return {
         1+0j, -1+0j, 0+1j, 0-1j
     }
 
-def next_paths(path, maze):
+def update_maze_lowest_possible_score(pos, direction, score, lowest_scores):
+    if lowest_scores[(pos, direction)] == -1:
+        lowest_scores[(pos, direction)] = score
+        return True
+    if score <= lowest_scores[(pos, direction)]:
+        lowest_scores[(pos, direction)] = score
+        return True
+    return False
+
+def next_paths(path, maze, lowest_scores):
     new_paths = []
     for next_dir in next_dirs():
         next_path = path.move(next_dir)
         try:
             if not next_path.pos in path.visited and maze[next_path.coord()] != WALL:
                 # skip if visited or is wall
-                new_paths.append(next_path)
+                if update_maze_lowest_possible_score(path.coord(), next_dir, next_path.score, lowest_scores):
+                    # skip if better path to pos is known
+                    new_paths.append(next_path)
+                # else:
+                #     print(f'Path {next_path} was skipped:')
+                #     render_maze(maze, next_path)
         except IndexError:
             # is out of bounds, skip
             continue
     return new_paths
 
-def render_maze(maze):
-    return '\n'.join([''.join(line for line in maze[y]) for y in range(len(maze))])
+def render_maze(maze, path: 'Path'):
+    sym = maze[path.coord()]
+    maze[path.coord()] = 'O'
+    prev = complex(*path.coord()) - path.last_direction
+    maze[int(prev.real), int(prev.imag)] = d_to_sym[path.last_direction]
+    print('\n'.join([''.join([maze[y, x] for x in range(len(maze[0]))]) for y in range(len(maze))]))
+    maze[path.coord()] = sym
+    maze[int(prev.real), int(prev.imag)] = ' '
 
 class Path:
     def __init__(self, pos, last_direction, visited, score):
@@ -88,46 +100,50 @@ class Path:
         visited = self.visited.union({new_pos})
         return Path(new_pos, next_direction, visited, score)
 
+    def __eq__(self, other):
+        return self.score == other.score
 
-def depth_first_search(maze, start_pos):
-    paths = [Path(start_pos, 1+0j, set(), 0)]
-    min_score = 999999999999999999999999
-    i = 0
-    while paths:
-        i += 1
-        current = paths.pop()
-        if i % 100000 == 0:
-            print(render_maze(maze))
-            print("--------")
-        if maze[current.coord()] == "E":
-            # reached fin
-            if current.score < min_score:
-                min_score = current.score
-                min_path = current
-                print(f"New lowest score: {min_score}, path: {current}")
-            continue
-        else:
-            if current.score > min_score:
-                # do not continue if already higher than lowest minimum
-                maze[current.coord()] = '\u16ED'
-                continue
-            else:
-                next_options = next_paths(current, maze)
-                if len(next_options) == 0:
-                    maze[current.coord()] = 'x'
-                if len(next_options) == 1:
-                    maze[current.coord()] = '.'
-                if len(next_options) > 1:
-                    maze[current.coord()] = 'O'
-                paths += next_options
-    return min_score
+    def __gt__(self, other):
+        return self.score > other.score
+
+    def __str__(self):
+        return f"P({self.pos}, {self.last_direction}, {self.score})"
+
+    def __repr__(self):
+        return str(self)
+
+def breadth_first_search(maze, start_pos):
+    queue: PriorityQueue[Path] = PriorityQueue()
+    queue.put(Path(start_pos, 0 + 1j, set(), 0))
+    lowest_scores = defaultdict(lambda: -1)
+    solutions = []
+    with pb.ProgressBar(max_value=pb.UnknownLength, widgets=[
+        ' [', pb.Timer(), '] ',
+        pb.Bar(),
+        pb.widgets.Variable('score')
+    ]) as p:
+        while not queue.empty():
+            current = queue.get()
+            # render_maze(maze, current)
+            p.update(score=current.score)
+            for next_path in next_paths(current, maze, lowest_scores):
+                queue.put(next_path)
+                if maze[next_path.coord()] == 'E':
+                    solutions.append(next_path)
+    print(solutions)
+    return sorted(solutions, key=lambda c: c.score)
+
+
 
 def run(file="input.txt"):
     maze, start_pos = parse(read(file))
-    print(depth_first_search(maze, start_pos))
+    solution_paths = breadth_first_search(maze, start_pos)
+    lowest_score = solution_paths[0].score
+    all_visited = set(reduce(set.union, map(lambda p: p.visited, filter(lambda p: p.score == lowest_score, solution_paths))))
+    return lowest_score, len(all_visited) + 1
 
     
 if __name__ == "__main__":
-    run("example.txt")
-    run("example2.txt")
-    run()
+    print(run("example.txt"))
+    print(run("example2.txt"))
+    print(run())
