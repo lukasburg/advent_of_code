@@ -1,6 +1,7 @@
 class Map:
     directions = [1+0j, 0+1j, -1+0j, 0-1j]
-    direction_to_symbol = {1+0j: '>', 0+1j: 'v', -1+0j: '<', 0-1j: '^'}
+    directions_symbols = {1+0j: '>', 0+1j: 'v', -1+0j: '<', 0-1j: '^',
+                          '>': 1+0j, 'v': 0+1j, '<': -1+0j, '^': 0-1j}
 
     def __init__(self, array_map):
         self.array_map = array_map
@@ -58,6 +59,14 @@ class Map:
                     return complex(x, y)
         raise ValueError('Symbol not found')
 
+    def find_all_symbols(self, symbol):
+        coord_set = set()
+        for y, line in enumerate(self.array_map):
+            for x, sym in enumerate(line):
+                if sym == symbol:
+                    coord_set.add(complex(x, y))
+        return coord_set
+
 def distance(k1: complex | tuple, k2: complex | tuple):
     if isinstance(k1, tuple):
         k1 = complex(*k1)
@@ -65,3 +74,7 @@ def distance(k1: complex | tuple, k2: complex | tuple):
     d = k1 - k2
     d = abs(int(d.real)) + abs(int(d.imag))
     return d
+
+def read(filename):
+    with open(filename) as file:
+        return file.read()[:-1]
