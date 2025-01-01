@@ -19,6 +19,12 @@ class Map:
         else:
             self.array_map[k[1]][k[0]] = value
 
+    def neighbors(self, k: complex | tuple):
+        if isinstance(k, complex):
+            return {k + d for d in self.directions}
+        else:
+            return {(k[0] + int(d.real), k[1] + int(d.imag)) for d in self.directions}
+
     def is_inbounds(self, k: complex | tuple):
         if isinstance(k, complex):
             return 0 <= int(k.imag) < self.y_max and 0 <= int(k.real) < self.x_max
@@ -52,6 +58,14 @@ class Map:
         m = [[s for s in line] for line in string.split('\n')]
         return cls(m)
 
+    @classmethod
+    def empty_map(cls, size):
+        if isinstance(size, complex):
+            size = int(size.real), int(size.imag)
+        if isinstance(size, tuple):
+            return cls([['.' for _ in range(size[0])] for _ in range(size[1])])
+        return cls([['.' for _ in range(size)] for _ in range(size)])
+
     def find_symbol(self, symbol):
         for y, line in enumerate(self.array_map):
             for x, sym in enumerate(line):
@@ -66,6 +80,42 @@ class Map:
                 if sym == symbol:
                     coord_set.add(complex(x, y))
         return coord_set
+
+    def breath_first_search_width_paths(self, start_pos, end_pos, wall_symbol='#'):
+        paths = [(start_pos,)]
+        while paths:
+            current_path = paths.pop(0)
+            current_pos = current_path[-1]
+            for n in self.neighbors(current_pos):
+                if not self.is_inbounds(n) or n in current_path:
+                    continue
+                if n == end_pos:
+                    return current_path + (n,)
+                if not wall_symbol is None and self[n] != wall_symbol:
+                    paths.append(current_path + (n,))
+        raise ValueError('No path found')
+
+    def distance_search(self, start_pos, end_pos, wall_symbol='#'):
+        def is_wall(c):
+            if wall_symbol is None:
+                return False
+            return self[c] == wall_symbol
+
+        outer_perimeter = {start_pos}
+        visited = set()
+        d = 0
+        while outer_perimeter:
+            if end_pos in outer_perimeter:
+                return d
+            d += 1
+            new_outer_perimeter = set()
+            for cell in outer_perimeter:
+                for neighbor in self.neighbors(cell):
+                    if self.is_inbounds(neighbor) and not is_wall(neighbor) and neighbor not in visited:
+                        new_outer_perimeter.add(neighbor)
+            visited.update(outer_perimeter)
+            outer_perimeter = new_outer_perimeter
+        raise ValueError('No path found')
 
 def distance(k1: complex | tuple, k2: complex | tuple):
     if isinstance(k1, tuple):
